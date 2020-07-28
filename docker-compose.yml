@@ -1,0 +1,54 @@
+version: "3.6"
+services:
+  rabbit1:
+    image: masstransit/rabbitmq:latest
+    hostname: rabbit1
+    environment:
+      - RABBITMQ_ERLANG_COOKIE=notsosecret
+    volumes:
+      - rabbitmq1-data:/var/lib/rabbitmq
+  rabbit2:
+    image: masstransit/rabbitmq:latest
+    hostname: rabbit2
+    depends_on:
+      - rabbit1
+    environment:
+      - RABBITMQ_ERLANG_COOKIE=notsosecret
+    volumes:
+      - rabbitmq2-data:/var/lib/rabbitmq
+      - ./cluster-entrypoint.sh:/usr/local/bin/cluster-entrypoint.sh
+    entrypoint: /usr/local/bin/cluster-entrypoint.sh
+  rabbit3:
+    image: masstransit/rabbitmq:latest
+    hostname: rabbit3
+    depends_on:
+      - rabbit1
+    environment:
+      - RABBITMQ_ERLANG_COOKIE=notsosecret
+    volumes:
+      - rabbitmq3-data:/var/lib/rabbitmq
+      - ./cluster-entrypoint.sh:/usr/local/bin/cluster-entrypoint.sh
+    entrypoint: /usr/local/bin/cluster-entrypoint.sh
+  haproxy:
+    hostname: haproxy
+    build: ./haproxy
+    ports:
+      - 15672:15672
+      - 5672:5672
+      - 1936:1936
+  sqlserver:
+    image: masstransit/sqlserver-quartz
+    ports:
+    - 1433:1433
+  quartz:
+    image: masstransit/quartz:latest
+    environment:
+      MT_Scheduler: 'quartz'
+      MT_RMQ__Host: 'haproxy'
+      MT_Quartz__ConnectionString: 'Server=tcp:sqlserver;Database=quartznet;Persist Security Info=False;User ID=sa;Password=Quartz!DockerP4ss;Encrypt=False;TrustServerCertificate=True;'
+    ports:
+      - "5002:80"
+volumes:
+  rabbitmq1-data:
+  rabbitmq2-data:
+  rabbitmq3-data:
